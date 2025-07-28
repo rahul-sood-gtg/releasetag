@@ -27,10 +27,10 @@ jobs:
           SAFE=${SAFE%%-*}
           echo "VERSION=$SAFE" >> $GITHUB_ENV
 
-      - name: Configure Git user
+      - name: Provide identity info
         run: |
-          git config user.email "${{ secrets.USER_EMAIL }}"
-          git config user.name "${{ secrets.USER_NAME }}"
+          git config --global user.email "rahul.sood@gumtreegroup.com.au"
+          git config --global user.name "Rahul Sood"
 
       - name: Fetch tags
         run: git fetch --tags
@@ -49,6 +49,6 @@ jobs:
         uses: mokhlesurr031/github-manual-release@16673403ef7d3d794092de600484986ac42b9571
         with:
           release-tag-number: ${{ env.VERSION }}
-          user-email: ${{ secrets.USER_EMAIL }}
-          user-name: ${{ secrets.USER_NAME }}
+          user-name: "Rahul Sood"
+          user-email: "rahul.sood@gumtreegroup.com.au"
           github-token: ${{ secrets.GITHUB_TOKEN }}
