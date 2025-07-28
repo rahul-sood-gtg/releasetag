@@ -1,0 +1,54 @@
+name: Auto Create Release Tag from Release Branch PR
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [ main ]
+
+jobs:
+  release:
+    if: >
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'releases/And-')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from branch
+        run: |
+          BRANCH=${{ github.event.pull_request.head.ref }}
+          SAFE=${BRANCH#releases/And-}
+          SAFE=${SAFE%%-*}
+          echo "VERSION=$SAFE" >> $GITHUB_ENV
+
+      - name: Configure Git user
+        run: |
+          git config user.email "${{ secrets.USER_EMAIL }}"
+          git config user.name "${{ secrets.USER_NAME }}"
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Compute previous version tag
+        id: prev
+        run: |
+          PREV=$(git tag --sort=-creatordate |
+            grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' |
+            grep -v "^${{ env.VERSION }}\$" |
+            head -n1 || true)
+          echo "PREVIOUS_TAG=$PREV" >> $GITHUB_ENV
+          echo "previous_tag=$PREV" >> $GITHUB_OUTPUT
+
+      - name: Create release using manual-release action
+        uses: mokhlesurr031/github-manual-release@16673403ef7d3d794092de600484986ac42b9571
+        with:
+          release-tag-number: ${{ env.VERSION }}
+          user-email: ${{ secrets.USER_EMAIL }}
+          user-name: ${{ secrets.USER_NAME }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
