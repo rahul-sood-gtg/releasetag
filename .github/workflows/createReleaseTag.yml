@@ -47,27 +47,9 @@ jobs:
           echo "::set-output name=previous_tag::$PREV"
 
       - name: Create release via manual-release action
-        uses: mokhlesurr031/github-manual-release@v2.0.2
+        uses: mokhlesurr031/github-manual-release@16673403ef7d3d794092de600484986ac42b9571
         with:
           release-tag-number: ${{ env.VERSION }}
           user-email: "rahul.sood@gumtreegroup.com.au"
           user-name: "Rahul Sood"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set Slack message payload
-        run: |
-          echo "SLACK_MESSAGE=✅ *Android ${{ env.VERSION }}* has been released (from tag ${{ steps.prev.outputs.previous_tag }}) <https://github.com/${{ github.repository }}/releases/tag/${{ env.VERSION }}|View Release>" >> $GITHUB_ENV
-
-      - name: Send Slack notification
-        if: ${{ success() }}
-        uses: slackapi/slack-github-action@v1.25.0
-        with:
-            channel-id: 'C04BH2M2VL7'
-            payload: |
-                {
-                   "text": "${{ env.SLACK_MESSAGE }}"
-                }
-        env:
-             SLACK_BOT_TOKEN: ${{ secrets.TOKEN_SLACK_BOT }}
-            
-         
+          github-token: ${{ secrets.GITHUB_TOKEN }
