@@ -1,9 +1,10 @@
-name: Auto Create Release Tag from Release Branch PR
+name: Auto Release from Release Branch PR
 
 on:
   pull_request:
     types: [closed]
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   release:
@@ -15,10 +16,15 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout full history
+      - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
+      - name: Provide Git identity
+        run: |
+          git config --global user.email "rahul.sood@gumtreegroup.com.au"
+          git config --global user.name "Rahul Sood"
 
       - name: Extract version from branch
         run: |
@@ -27,28 +33,39 @@ jobs:
           SAFE=${SAFE%%-*}
           echo "VERSION=$SAFE" >> $GITHUB_ENV
 
-      - name: Provide identity info
-        run: |
-          git config --global user.email "rahul.sood@gumtreegroup.com.au"
-          git config --global user.name "Rahul Sood"
-
-      - name: Fetch tags
+      - name: Fetch all tags
         run: git fetch --tags
 
-      - name: Compute previous version tag
+      - name: Compute previous release tag
         id: prev
         run: |
-          PREV=$(git tag --sort=-creatordate |
-            grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' |
-            grep -v "^${{ env.VERSION }}\$" |
-            head -n1 || true)
+          PREV=$(git tag --sort=-creatordate \
+            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+            | grep -v "^${{ env.VERSION }}\$" \
+            | head -n1 || true)
           echo "PREVIOUS_TAG=$PREV" >> $GITHUB_ENV
-          echo "previous_tag=$PREV" >> $GITHUB_OUTPUT
+          echo "::set-output name=previous_tag::$PREV"
 
-      - name: Create release using manual-release action
-        uses: mokhlesurr031/github-manual-release@16673403ef7d3d794092de600484986ac42b9571
+      - name: Create release via manual-release action
+        uses: mokhlesurr031/github-manual-release@v2.0.2
         with:
           release-tag-number: ${{ env.VERSION }}
-          user-name: "Rahul Sood"
           user-email: "rahul.sood@gumtreegroup.com.au"
+          user-name: "Rahul Sood"
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set Slack message payload
+        run: |
+          echo "SLACK_MESSAGE=✅ *Android ${{ env.VERSION }}* has been released (from tag ${{ steps.prev.outputs.previous_tag }}) <https://github.com/${{ github.repository }}/releases/tag/${{ env.VERSION }}|View Release>" >> $GITHUB_ENV
+
+      - name: Send Slack notification
+        if: ${{ success() }}
+        uses: slackapi/slack-github-action@v1
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          payload: |
+            {
+              "channel": "C0123456",
+              "text": "${{ env.SLACK_MESSAGE }}"
+            }
