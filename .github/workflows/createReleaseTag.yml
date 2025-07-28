@@ -60,12 +60,14 @@ jobs:
 
       - name: Send Slack notification
         if: ${{ success() }}
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v1.25.0
         with:
-          method: chat.postMessage
-          token: ${{ secrets.SLACK_BOT_TOKEN }}
-          payload: |
-            {
-              "channel": "C0123456",
-              "text": "${{ env.SLACK_MESSAGE }}"
-            }
+            channel-id: 'C04BH2M2VL7'
+            payload: |
+                {
+                   "text": "${{ env.SLACK_MESSAGE }}"
+                }
+        env:
+             SLACK_BOT_TOKEN: ${{ secrets.TOKEN_SLACK_BOT }}
+            
+         
