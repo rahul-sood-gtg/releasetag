@@ -46,10 +46,11 @@ jobs:
           echo "PREVIOUS_TAG=$PREV" >> $GITHUB_ENV
           echo "::set-output name=previous_tag::$PREV"
 
-      - name: Create release via manual-release action
-        uses: mokhlesurr031/github-manual-release@16673403ef7d3d794092de600484986ac42b9571
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          release-tag-number: ${{ env.VERSION }}
-          user-email: "rahul.sood@gumtreegroup.com.au"
-          user-name: "Rahul Sood"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ env.VERSION }}
+          name: Release ${{ env.VERSION }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
