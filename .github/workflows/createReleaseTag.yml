@@ -46,12 +46,11 @@ jobs:
           echo "PREVIOUS_TAG=$PREV" >> $GITHUB_ENV
           echo "previous_tag=$PREV" >> $GITHUB_OUTPUT
 
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
+      - name: Create GitHub Release using ncipollo/release-action
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ env.VERSION }}
+          tag: ${{ env.VERSION }}
           name: Release ${{ env.VERSION }}
-          generate_release_notes: true
+          generateReleaseNotes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
