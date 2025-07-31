@@ -52,6 +52,6 @@ jobs:
         with:
           tag: ${{ env.VERSION }}
           name: Release ${{ env.VERSION }}
-          generateReleaseNotes: true
+          generate_Release_Notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
