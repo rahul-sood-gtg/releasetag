@@ -60,14 +60,15 @@ jobs:
         uses: requarks/changelog-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ env.VERSION }}       # New version (latest)
-          toTag: ${{ env.PREVIOUS_TAG }}    # Previous version (oldest)
+          fromTag: ${{ env.VERSION }}       # NEW tag
+          toTag:   ${{ env.PREVIOUS_TAG }}  # OLD tag
           writeToFile: false
           changelogFilePath: CHANGELOG.md
           includeRefIssues: true
           useGitmojis: true
           excludeTypes: build,docs,other,style
           reverseOrder: false
+          includeInvalidCommits: true    
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
