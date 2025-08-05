@@ -1,10 +1,10 @@
-name: Auto Release from Release Branch PR
+name: Draft & Publish Android Release Tag
 
 on:
   pull_request:
     types: [closed]
     branches:
-      - main
+      - Dummydevelop
 
 jobs:
   release:
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write  
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -28,8 +28,9 @@ jobs:
           git config --global user.name "Rahul Sood"
 
       - name: Extract version from branch
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
-          BRANCH=${{ github.event.pull_request.head.ref }}
           SAFE=${BRANCH#releases/And-}
           SAFE=${SAFE%%-*}
           echo "VERSION=$SAFE" >> $GITHUB_ENV
@@ -42,16 +43,26 @@ jobs:
         run: |
           PREV=$(git tag --sort=-creatordate \
           | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
-          | grep -v "^${{ env.VERSION }}\$" \
+          | grep -v "^$VERSION\$" \
           | head -n1 || true)
           echo "PREVIOUS_TAG=$PREV" >> $GITHUB_ENV
           echo "previous_tag=$PREV" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release using ncipollo/release-action
-        uses: ncipollo/release-action@v1
+      - name: Generate changelog
+        id: changelog
+        uses: requarks/changelog-action@6d71e098526ee17bae963f058d34cd763378337f
         with:
-          tag: ${{ env.VERSION }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fromTag: ${{ env.PREVIOUS_TAG }}
+          toTag: ${{ env.VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
+        with:
+          tag_name: ${{ env.VERSION }}
           name: Release ${{ env.VERSION }}
-          generate_Release_Notes: true
+          body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
