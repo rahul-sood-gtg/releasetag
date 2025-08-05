@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [closed]
     branches:
-      - Dummydevelop
+      - main
 
 jobs:
   release:
@@ -66,3 +66,4 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
