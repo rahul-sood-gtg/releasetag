@@ -48,21 +48,25 @@ jobs:
           echo "PREVIOUS_TAG=$PREV" >> $GITHUB_ENV
           echo "previous_tag=$PREV" >> $GITHUB_OUTPUT
 
-      - name: Generate changelog
+      - name: Generate changelog via Conventional Commits
         id: changelog
         uses: requarks/changelog-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ env.PREVIOUS_TAG }}
-          toTag: ${{ env.VERSION }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          fromTag: ${{ env.VERSION }}            # NEW version (current release)
+          toTag:   ${{ env.PREVIOUS_TAG }}       # PREVIOUS version for diff
+          writeToFile: true
+          changelogFilePath: CHANGELOG.md
+          includeRefIssues: true
+          useGitmojis: true
+          excludeTypes: build,docs,other,style
+          reverseOrder: false
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
+        uses: softprops/action-gh-release@72f2c25fcb4…  # v2.3.2 SHA
         with:
           tag_name: ${{ env.VERSION }}
-          name: Release ${{ env.VERSION }}
+          name: "Release ${{ env.VERSION }}"
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
