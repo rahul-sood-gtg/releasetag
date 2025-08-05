@@ -63,13 +63,14 @@ jobs:
           reverseOrder: false
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@72f2c25fcb4…  # v2.3.2 SHA
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8  # v2.3.2 SHA
         with:
           tag_name: ${{ env.VERSION }}
           name: "Release ${{ env.VERSION }}"
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
