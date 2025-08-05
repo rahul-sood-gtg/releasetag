@@ -66,9 +66,9 @@ jobs:
           changelogFilePath: CHANGELOG.md
           includeRefIssues: true
           useGitmojis: true
-          excludeTypes: build,docs,other,style
           reverseOrder: false
           includeInvalidCommits: true    
+          excludeTypes: ""
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
@@ -78,3 +78,4 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
