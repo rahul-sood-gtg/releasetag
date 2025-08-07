@@ -36,12 +36,12 @@ jobs:
             });
             core.setOutput('pr_head_ref', pr.data.head.ref);
 
-      - name: Verify that the source branch starts with 'releases/dummy-'
-        if: ${{ startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/dummy-') }}
+      - name: Verify that the source branch starts with 'releases/And-'
+        if: ${{ startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-') }}
         run: echo "Source branch matches:'${{ steps.fetch_pr.outputs.pr_head_ref }}'"
 
       - name: Abort if branch pattern does not match
-        if: ${{ !startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/dummy-') }}
+        if: ${{ !startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-') }}
         run: |
           echo "Skipping workflow: source branch '${{ steps.fetch_pr.outputs.pr_head_ref }}' doesn't match."
           exit 0
@@ -51,7 +51,7 @@ jobs:
           RAW_BRANCH="${{ steps.fetch_pr.outputs.pr_head_ref }}"
           SANITIZED=$(echo "$RAW_BRANCH" | tr -c '[:alnum:]._/-' '_')
           echo "SANITIZED_BRANCH=$SANITIZED" >> $GITHUB_ENV
-          SAFE=${SANITIZED#releases/dummy-}
+          SAFE=${SANITIZED#releases/And-}
           SAFE=${SAFE%%-*}
           echo "VERSION=$SAFE" >> $GITHUB_ENV
 
@@ -107,3 +107,4 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
