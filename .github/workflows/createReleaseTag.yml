@@ -99,7 +99,7 @@ jobs:
           includeRefIssues: true
           useGitmojis: true
           reverseOrder: false
-          includeInvalidCommits: false
+          includeInvalidCommits: true
           excludeTypes: ""
 
       - name: Create GitHub release
@@ -110,5 +110,6 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
