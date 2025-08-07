@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     # This 'if' condition ensures the job only runs if the push is a merge commit
     # from a pull request, preventing it from running on regular pushes.
-    if: startsWith(github.event.head_commit.message, 'Merge pull request #')
+    if: ${{ startsWith(github.event.head_commit.message, 'Merge pull request #') }}
 
     steps:
       - name: Extract PR Number from commit message
@@ -113,3 +113,4 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
