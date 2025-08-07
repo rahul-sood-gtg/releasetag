@@ -66,8 +66,8 @@ jobs:
 
       - name: Set Git identity
         run: |
-          git config --global user.email "rahul.sood@gumtreegroup.com.au"
-          git config --global user.name "Rahul Sood"
+          git config --global user.email "${GITHUB_ACTOR}@gumtreegroup.com.au"
+          git config --global user.name "${GITHUB_ACTOR}"
 
       - name: Fetch all tags
         run: git fetch --tags
@@ -110,6 +110,7 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
