@@ -1,8 +1,9 @@
 name: Draft & Publish Android Release Tag
 
+# The workflow now triggers on a push to the dummyBranch.
+# This event is triggered after a 'rebase and merge' action completes.
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches:
       - main
 
@@ -12,28 +13,64 @@ permissions:
 
 jobs:
   release:
-    if: >
-      github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'releases/And-')
     runs-on: ubuntu-latest
+    # This 'if' condition ensures the job only runs if the push is a merge commit
+    # from a pull request, preventing it from running on regular pushes.
+    if: startsWith(github.event.head_commit.message, 'Merge pull request #')
 
     steps:
-      - name: Checkout repository (full history)
+      - name: Extract PR Number from commit message
+        id: pr_number
+        run: |
+          # Use grep and sed to parse the PR number from the merge commit message.
+          PR_NUMBER=$(echo "${{ github.event.head_commit.message }}" | grep -o '#[0-9]\+' | sed 's/#//')
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+
+      - name: Fetch original PR details via GitHub API
+        id: fetch_pr
+        uses: actions/github-script@v6
+        with:
+          script: |
+            // This script uses the PR number to get the original pull request's details,
+            // which includes the correct head branch name.
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: process.env.PR_NUMBER,
+            });
+            core.setOutput('pr_head_ref', pr.data.head.ref);
+
+      - name: Verify that the source branch starts with 'releases/dummy-'
+        # This crucial step ensures the workflow only proceeds if the original
+        # branch name matches your required pattern.
+        if: "!startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-')"
+        run: |
+          echo "The source branch '${{ steps.fetch_pr.outputs.pr_head_ref }}' does not match the required pattern. Skipping the rest of the workflow."
+          exit 1
+      
+      - name: Set environment variables for branch and version
+        run: |
+          # Now that we have the correct head branch name, we can set the env vars.
+          RAW_BRANCH="${{ steps.fetch_pr.outputs.pr_head_ref }}"
+          SANITIZED=$(echo "$RAW_BRANCH" | tr -c '[:alnum:]._/-' '_')
+          echo "SANITIZED_BRANCH=$SANITIZED" >> $GITHUB_ENV
+          
+          # Extract the version from the sanitized branch name.
+          SAFE=${SANITIZED#releases/And-}
+          SAFE=${SAFE%%-*}
+          echo "VERSION=$SAFE" >> $GITHUB_ENV
+
+      - name: Checkout repository at specific commit
         uses: actions/checkout@v3
         with:
+          # Use the post-merge commit SHA.
+          ref: ${{ github.event.after }}
           fetch-depth: 0
 
       - name: Provide Git identity
         run: |
           git config --global user.email "rahul.sood@gumtreegroup.com.au"
           git config --global user.name "Rahul Sood"
-
-      - name: Extract version from branch
-        run: |
-          REF=${{ github.event.pull_request.head.ref }}
-          VERSION=${REF#releases/And-}
-          VERSION=${VERSION%%-*}
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Fetch all tags
         run: git fetch --tags
@@ -50,8 +87,6 @@ jobs:
 
       - name: Create annotated tag & push version
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$VERSION" -m "Release $VERSION"
           git push origin "$VERSION"
 
@@ -60,22 +95,21 @@ jobs:
         uses: requarks/changelog-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ env.VERSION }}       # NEW tag
-          toTag:   ${{ env.PREVIOUS_TAG }}  # OLD tag
+          fromTag: ${{ env.PREVIOUS_TAG }}
+          toTag: ${{ env.VERSION }}
           writeToFile: false
           changelogFilePath: CHANGELOG.md
           includeRefIssues: true
           useGitmojis: true
           reverseOrder: false
-          includeInvalidCommits: true    
+          includeInvalidCommits: true
           excludeTypes: ""
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
+        uses: softprops/action-gh-release@f2352b97da0095b4dbbd885a81023e3deabf4fef
         with:
           tag_name: ${{ env.VERSION }}
           name: "Release ${{ env.VERSION }}"
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
