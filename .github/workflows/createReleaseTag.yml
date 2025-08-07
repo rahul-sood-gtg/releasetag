@@ -1,7 +1,6 @@
 name: Draft & Publish Android Release Tag
 
-# The workflow now triggers on a push to the dummyBranch.
-# This event is triggered after a 'rebase and merge' action completes.
+# This workflow triggers on push to the 'main' branch, e.g. after a Rebase & Merge.
 on:
   push:
     branches:
@@ -14,60 +13,55 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # This 'if' condition ensures the job only runs if the push is a merge commit
-    # from a pull request, preventing it from running on regular pushes.
+    # Only run when the push commit message starts with "Merge pull request #"
     if: ${{ startsWith(github.event.head_commit.message, 'Merge pull request #') }}
 
     steps:
       - name: Extract PR Number from commit message
         id: pr_number
         run: |
-          # Use grep and sed to parse the PR number from the merge commit message.
-          PR_NUMBER=$(echo "${{ github.event.head_commit.message }}" | grep -o '#[0-9]\+' | sed 's/#//')
-          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+          PR_NUMBER=$(echo "${{ github.event.head_commit.message }}" \
+            | grep -o '#[0-9]\+' | sed 's/#//')
+          echo "PR_NUMBER=${PR_NUMBER}" >> $GITHUB_ENV
 
       - name: Fetch original PR details via GitHub API
         id: fetch_pr
         uses: actions/github-script@v6
         with:
           script: |
-            // This script uses the PR number to get the original pull request's details,
-            // which includes the correct head branch name.
             const pr = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: process.env.PR_NUMBER,
+              pull_number: parseInt(process.env.PR_NUMBER, 10),
             });
             core.setOutput('pr_head_ref', pr.data.head.ref);
 
       - name: Verify that the source branch starts with 'releases/dummy-'
-        # This crucial step ensures the workflow only proceeds if the original
-        # branch name matches your required pattern.
-        if: "!startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-')"
+        if: ${{ startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/dummy-') }}
+        run: echo "Source branch matches:'${{ steps.fetch_pr.outputs.pr_head_ref }}'"
+
+      - name: Abort if branch pattern does not match
+        if: ${{ !startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/dummy-') }}
         run: |
-          echo "The source branch '${{ steps.fetch_pr.outputs.pr_head_ref }}' does not match the required pattern. Skipping the rest of the workflow."
-          exit 1
-      
-      - name: Set environment variables for branch and version
+          echo "Skipping workflow: source branch '${{ steps.fetch_pr.outputs.pr_head_ref }}' doesn't match."
+          exit 0
+
+      - name: Sanitize branch name and set version
         run: |
-          # Now that we have the correct head branch name, we can set the env vars.
           RAW_BRANCH="${{ steps.fetch_pr.outputs.pr_head_ref }}"
           SANITIZED=$(echo "$RAW_BRANCH" | tr -c '[:alnum:]._/-' '_')
           echo "SANITIZED_BRANCH=$SANITIZED" >> $GITHUB_ENV
-          
-          # Extract the version from the sanitized branch name.
-          SAFE=${SANITIZED#releases/And-}
+          SAFE=${SANITIZED#releases/dummy-}
           SAFE=${SAFE%%-*}
           echo "VERSION=$SAFE" >> $GITHUB_ENV
 
-      - name: Checkout repository at specific commit
+      - name: Checkout repository at post-merge commit
         uses: actions/checkout@v3
         with:
-          # Use the post-merge commit SHA.
           ref: ${{ github.event.after }}
           fetch-depth: 0
 
-      - name: Provide Git identity
+      - name: Set Git identity
         run: |
           git config --global user.email "rahul.sood@gumtreegroup.com.au"
           git config --global user.name "Rahul Sood"
@@ -85,7 +79,7 @@ jobs:
           echo "PREVIOUS_TAG=$PREV" >> $GITHUB_ENV
           echo "previous_tag=$PREV" >> $GITHUB_OUTPUT
 
-      - name: Create annotated tag & push version
+      - name: Create annotated tag & push
         run: |
           git tag -a "$VERSION" -m "Release $VERSION"
           git push origin "$VERSION"
@@ -113,4 +107,3 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
