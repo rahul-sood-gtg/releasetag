@@ -1,6 +1,5 @@
 name: Draft & Publish Android Release Tag
 
-# This workflow triggers on push to the 'main' branch, e.g. after a Rebase & Merge.
 on:
   push:
     branches:
@@ -13,16 +12,14 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Only run when the push commit message starts with "Merge pull request #"
     if: ${{ startsWith(github.event.head_commit.message, 'Merge pull request') }}
 
     steps:
       - name: Extract PR Number from commit message
         id: pr_number
         run: |
-          PR_NUMBER=$(echo "${{ github.event.head_commit.message }}" \
-            | grep -o '#[0-9]\+' | sed 's/#//')
-          echo "PR_NUMBER=${PR_NUMBER}" >> $GITHUB_ENV
+          PR_NUMBER=$(echo "${{ github.event.head_commit.message }}" | grep -o '#[0-9]\+' | sed 's/#//')
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
 
       - name: Fetch original PR details via GitHub API
         id: fetch_pr
@@ -53,7 +50,8 @@ jobs:
           echo "SANITIZED_BRANCH=$SANITIZED" >> $GITHUB_ENV
           SAFE=${SANITIZED#releases/And-}
           SAFE=${SAFE%%-*}
-          echo "VERSION=$SAFE" >> $GITHUB_ENV
+          VERSION=$(echo "$SAFE" | sed 's/_$//')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Checkout repository at post-merge commit
         uses: actions/checkout@v3
@@ -107,5 +105,3 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
