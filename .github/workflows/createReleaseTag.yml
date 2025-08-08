@@ -1,7 +1,7 @@
 name: Draft & Publish Android Release Tag
 
 on:
-  pull_request:
+  push:
     branches:
       - main
 
@@ -110,6 +110,7 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
