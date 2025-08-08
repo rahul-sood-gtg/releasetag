@@ -2,9 +2,8 @@ name: Draft & Publish Android Release Tag
 
 
 on:
-  pull_request:
-    types: [closed] 
-    # This workflow triggers only when a pull request is merged into the main branch.
+  push:
+   
     branches:
       - main
 
