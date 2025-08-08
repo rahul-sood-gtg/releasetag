@@ -1,7 +1,8 @@
 name: Draft & Publish Android Release Tag
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - main
 
@@ -12,13 +13,15 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.event.head_commit.message, 'Merge pull request') }}
+    if: ${{ github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'releases/And-') }}
 
     steps:
       - name: Extract PR Number from commit message
         id: pr_number
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          PR_NUMBER=$(echo "${{ github.event.head_commit.message }}" | grep -o '#[0-9]\+' | sed 's/#//')
+          PR_NUMBER=$(echo "$COMMIT_MSG" | grep -o '#[0-9]\+' | sed 's/#//' | tr -cd '0-9' | tr -d '\n')
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
 
       - name: Fetch original PR details via GitHub API
@@ -61,8 +64,8 @@ jobs:
       - name: Checkout repository at post-merge commit
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.after }}
-          fetch-depth: 0
+           ref: ${{ github.event.pull_request.merge_commit_sha }}
+           fetch-depth: 0
 
       - name: Set Git identity
         run: |
@@ -89,7 +92,7 @@ jobs:
 
       - name: Generate changelog via Conventional Commits
         id: changelog
-        uses: requarks/changelog-action@v1
+        uses: requarks/changelog-action@6d71e098526ee17bae963f058d34cd763378337f
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fromTag: ${{ env.VERSION }}
@@ -106,7 +109,7 @@ jobs:
         uses: softprops/action-gh-release@f2352b97da0095b4dbbd885a81023e3deabf4fef
         with:
           tag_name: ${{ env.VERSION }}
-          name: "Release ${{ env.TARGET_BRANCH }}"
+          name: "${{ env.VERSION }}"
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
