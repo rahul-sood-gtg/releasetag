@@ -1,10 +1,10 @@
 name: Draft & Publish Android Release Tag
 
 on:
-  pull_request:
+   pull_request:
     types: [closed]
     branches:
-      - dummyBranch
+      - main
 
 permissions:
   contents: write
@@ -13,16 +13,33 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'releases/dummy-') }}
 
     steps:
-    
-      - name: Verify that the source branch starts with 'releases/dummy-'
-        if: ${{ startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/dummy-') }}
+      - name: Extract PR Number from commit message
+        id: pr_number
+        run: |
+          PR_NUMBER=$(echo "${{ github.event.head_commit.message }}" | grep -o '#[0-9]\+' | sed 's/#//')
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+
+      - name: Fetch original PR details via GitHub API
+        id: fetch_pr
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: parseInt(process.env.PR_NUMBER, 10),
+            });
+            core.setOutput('pr_head_ref', pr.data.head.ref);
+            core.setOutput('pr_base_ref', pr.data.base.ref);
+
+      - name: Verify that the source branch starts with 'releases/And-'
+        if: ${{ startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-') }}
         run: echo "Source branch matches:'${{ steps.fetch_pr.outputs.pr_head_ref }}'"
 
       - name: Abort if branch pattern does not match
-        if: ${{ !startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/dummy-') }}
+        if: ${{ !startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-') }}
         run: |
           echo "Skipping workflow: source branch '${{ steps.fetch_pr.outputs.pr_head_ref }}' doesn't match."
           exit 0
@@ -32,7 +49,7 @@ jobs:
           RAW_BRANCH="${{ steps.fetch_pr.outputs.pr_head_ref }}"
           SANITIZED=$(echo "$RAW_BRANCH" | tr -c '[:alnum:]._/-' '_')
           echo "SANITIZED_BRANCH=$SANITIZED" >> $GITHUB_ENV
-          SAFE=${SANITIZED#releases/dummy-}
+          SAFE=${SANITIZED#releases/And-}
           SAFE=${SAFE%%-*}
           VERSION=$(echo "$SAFE" | sed 's/_$//')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
@@ -44,8 +61,8 @@ jobs:
       - name: Checkout repository at post-merge commit
         uses: actions/checkout@v3
         with:
-           ref: ${{ github.event.pull_request.merge_commit_sha }}
-           fetch-depth: 0
+          ref: ${{ github.event.after }}
+          fetch-depth: 0
 
       - name: Set Git identity
         run: |
@@ -72,7 +89,7 @@ jobs:
 
       - name: Generate changelog via Conventional Commits
         id: changelog
-        uses: requarks/changelog-action@6d71e098526ee17bae963f058d34cd763378337f
+        uses: requarks/changelog-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fromTag: ${{ env.VERSION }}
@@ -89,11 +106,10 @@ jobs:
         uses: softprops/action-gh-release@f2352b97da0095b4dbbd885a81023e3deabf4fef
         with:
           tag_name: ${{ env.VERSION }}
-          name: "${{ env.VERSION }}"
+          name: "Release ${{ env.TARGET_BRANCH }}"
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 
 
 
