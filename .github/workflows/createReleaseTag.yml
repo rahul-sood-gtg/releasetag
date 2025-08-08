@@ -1,5 +1,4 @@
 name: Draft & Publish Android Release Tag
-
 on:
   push:
     branches:
@@ -12,12 +11,15 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-
+    # This 'if' condition ensures the job only runs if the push is a merge commit
+    # from a pull request. This prevents it from running on regular pushes.
+    if: startsWith(github.event.head_commit.message, 'Merge pull request #')
 
     steps:
       - name: Extract PR Number from commit message
         id: pr_number
         run: |
+          # The PR number is extracted from the automatically generated merge commit message.
           PR_NUMBER=$(echo "${{ github.event.head_commit.message }}" | grep -o '#[0-9]\+' | sed 's/#//')
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
 
@@ -26,6 +28,8 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
+            // Use the GitHub API to get the original pull request details, which
+            // contain the correct source branch name.
             const pr = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -33,41 +37,43 @@ jobs:
             });
             core.setOutput('pr_head_ref', pr.data.head.ref);
             core.setOutput('pr_base_ref', pr.data.base.ref);
-
+          
       - name: Verify that the source branch starts with 'releases/And-'
-        if: ${{ startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-') }}
-        run: echo "Source branch matches:'${{ steps.fetch_pr.outputs.pr_head_ref }}'"
-
-      - name: Abort if branch pattern does not match
-        if: ${{ !startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-') }}
+        # This crucial step checks if the source branch name matches your required pattern.
+        # It fails the job if it doesn't, ensuring the release process only runs for
+        # the correct branches.
+        if: "!startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-')"
         run: |
-          echo "Skipping workflow: source branch '${{ steps.fetch_pr.outputs.pr_head_ref }}' doesn't match."
-          exit 0
-
-      - name: Sanitize branch name and set version
+          echo "The source branch '${{ steps.fetch_pr.outputs.pr_head_ref }}' does not match the required pattern. Skipping the rest of the workflow."
+          exit 1
+      
+      - name: Set environment variables for branch and version
         run: |
           RAW_BRANCH="${{ steps.fetch_pr.outputs.pr_head_ref }}"
           SANITIZED=$(echo "$RAW_BRANCH" | tr -c '[:alnum:]._/-' '_')
           echo "SANITIZED_BRANCH=$SANITIZED" >> $GITHUB_ENV
+          
           SAFE=${SANITIZED#releases/And-}
           SAFE=${SAFE%%-*}
           VERSION=$(echo "$SAFE" | sed 's/_$//')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-          # Save the full branch name for release naming
+          
+          # The TARGET_BRANCH is needed for the release name.
           TARGET_BRANCH="${{ steps.fetch_pr.outputs.pr_base_ref }}"
           echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_ENV
 
       - name: Checkout repository at post-merge commit
         uses: actions/checkout@v3
         with:
+          # `github.event.after` points to the SHA of the new commit on main.
           ref: ${{ github.event.after }}
           fetch-depth: 0
 
       - name: Set Git identity
         run: |
-          git config --global user.email "${GITHUB_ACTOR}@gumtreegroup.com.au"
-          git config --global user.name "${GITHUB_ACTOR}"
+          # Use the GitHub Actions bot user for the git identity.
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
 
       - name: Fetch all tags
         run: git fetch --tags
@@ -92,10 +98,9 @@ jobs:
         uses: requarks/changelog-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ env.VERSION }}
-          toTag: ${{ env.PREVIOUS_TAG }}
+          fromTag: ${{ env.PREVIOUS_TAG }}
+          toTag: ${{ env.VERSION }}
           writeToFile: false
-          changelogFilePath: CHANGELOG.md
           includeRefIssues: true
           useGitmojis: true
           reverseOrder: false
@@ -106,13 +111,7 @@ jobs:
         uses: softprops/action-gh-release@f2352b97da0095b4dbbd885a81023e3deabf4fef
         with:
           tag_name: ${{ env.VERSION }}
-          name: "Release ${{ env.TARGET_BRANCH }}"
+          name: "Release ${{ env.VERSION }}"
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-
-
-
-
