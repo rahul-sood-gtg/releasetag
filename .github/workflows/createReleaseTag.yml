@@ -15,24 +15,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Extract PR Number from commit message
-        id: pr_number
-        run: |
-          PR_NUMBER=$(echo "${{ github.event.head_commit.message }}" | grep -o '#[0-9]\+' | sed 's/#//')
-          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
-
-      - name: Fetch original PR details via GitHub API
-        id: fetch_pr
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const pr = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: parseInt(process.env.PR_NUMBER, 10),
-            });
-            core.setOutput('pr_head_ref', pr.data.head.ref);
-            core.setOutput('pr_base_ref', pr.data.base.ref);
 
       - name: Verify that the source branch starts with 'releases/And-'
         if: ${{ startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-') }}
@@ -110,6 +92,7 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
