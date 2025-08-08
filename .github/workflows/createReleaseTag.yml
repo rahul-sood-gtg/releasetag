@@ -12,7 +12,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.event.head_commit.message, 'Merge pull request') }}
+
 
     steps:
       - name: Extract PR Number from commit message
@@ -110,6 +110,7 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
