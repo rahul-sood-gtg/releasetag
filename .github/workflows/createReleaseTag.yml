@@ -72,8 +72,8 @@ jobs:
       - name: Set Git identity
         run: |
           # Use the GitHub Actions bot user for the git identity.
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
+           git config --global user.email "${GITHUB_ACTOR}@gumtreegroup.com.au"
+          git config --global user.name "${GITHUB_ACTOR}"
 
       - name: Fetch all tags
         run: git fetch --tags
@@ -115,3 +115,4 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
