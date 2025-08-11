@@ -15,9 +15,6 @@ permissions:
 
 jobs:
   release:
-    # Only proceed if:
-    # - A PR was merged (handles merge, rebase, squash)
-    # - OR it's a push event to 'main'
     if: |
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
       (github.event_name == 'push')
@@ -29,22 +26,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Determine source branch
-        id: source
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "SOURCE_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
-          else
-            # Lookup the PR from the latest commit for push events
-            PR_DATA=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/pulls --jq '.[0].head.ref')
-            echo "SOURCE_BRANCH=$PR_DATA" >> $GITHUB_ENV
-          fi
-          echo "Detected source branch: $SOURCE_BRANCH"
+      - name: Configure Git identity as GitHub Actions bot
+        uses: actions-rindeal/git-identity-from-username@v2
+        with:
+          username: github-actions[bot]
+          failover-name: 'github-actions[bot]'
+          failover-email: '41898282+github-actions[bot]@users.noreply.github.com'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify branch naming convention
+      - name: Identify merged PR for push events
+        if: ${{ github.event_name == 'push' }}
+        id: get_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_DATA=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/pulls --jq '.[0].head.ref')
+          echo "SOURCE_BRANCH=$PR_DATA" >> $GITHUB_ENV
+
+      - name: Determine source branch for pull_request
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          echo "SOURCE_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+
+      - name: Check branch pattern
         if: ${{ !startsWith(env.SOURCE_BRANCH, 'releases/And-') }}
         run: |
-          echo "Source branch '${SOURCE_BRANCH}' does not start with 'releases/And-'. Skipping release flow."
+          echo "Source branch '${SOURCE_BRANCH}' does not start with 'releases/And-'. Exiting."
           exit 0
 
       - name: Extract version
@@ -52,7 +59,6 @@ jobs:
           VERSION=${SOURCE_BRANCH#releases/And-}
           VERSION=${VERSION%%-*}
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Computed VERSION = $VERSION"
 
       - name: Compute previous tag
         id: prev
@@ -63,7 +69,7 @@ jobs:
             | head -n1 || true)
           echo "PREVIOUS_TAG=$PREV" >> $GITHUB_ENV
 
-      - name: Create annotated tag & push
+      - name: Create tag & push
         run: |
           git tag -a "$VERSION" -m "Release $VERSION"
           git push origin "$VERSION"
