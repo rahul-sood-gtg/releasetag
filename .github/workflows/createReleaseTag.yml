@@ -1,9 +1,9 @@
 name: Draft & Publish Android Release Tag
 
-
+# The workflow is now correctly triggered on a push event to the main branch.
+# This is the correct event to use when a 'rebase and merge' action completes.
 on:
   push:
-   
     branches:
       - main
 
@@ -45,7 +45,7 @@ jobs:
         # This crucial step checks if the source branch name matches your required pattern.
         # It fails the job if it's not, ensuring the release process only runs for
         # the correct branches.
-        if: ${{ !startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-') }}
+        if: "!startsWith(steps.fetch_pr.outputs.pr_head_ref, 'releases/And-')"
         run: |
           echo "The source branch '${{ steps.fetch_pr.outputs.pr_head_ref }}' does not match the required pattern. Skipping the rest of the workflow."
           exit 1
@@ -118,5 +118,3 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
