@@ -47,3 +47,4 @@ test commitgit
 test another solution
 commit good one
 not good
+commit 42
