@@ -5,6 +5,7 @@ on:
     types: [closed]
     branches:
       - main
+ 
 
 permissions:
   contents: write
@@ -13,8 +14,7 @@ permissions:
 jobs:
   release:
     if: |
-      github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'releases/And-')
+       github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'releases/And-')
     runs-on: ubuntu-latest
 
     steps:
@@ -31,9 +31,25 @@ jobs:
           failover-email: '41898282+github-actions[bot]@users.noreply.github.com'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set SOURCE_BRANCH
+      - name: Identify merged PR for push events
+        if: ${{ github.event_name == 'push' }}
+        id: get_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_DATA=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/pulls --jq '.[0].head.ref')
+          echo "SOURCE_BRANCH=$PR_DATA" >> $GITHUB_ENV
+
+      - name: Determine source branch for pull_request
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
           echo "SOURCE_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+
+      - name: Check branch pattern
+        if: ${{ !startsWith(env.SOURCE_BRANCH, 'releases/And-') }}
+        run: |
+          echo "Source branch '${SOURCE_BRANCH}' does not start with 'releases/And-'. Exiting."
+          exit 0
 
       - name: Extract version
         run: |
@@ -76,6 +92,15 @@ jobs:
           tag_name: ${{ env.VERSION }}
           name: "${{ env.VERSION }}"
           body: ${{ steps.changelog.outputs.changes }}
+                **[View full changelog](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
+
+
+
+
 
