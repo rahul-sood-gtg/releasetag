@@ -76,8 +76,8 @@ jobs:
         uses: requarks/changelog-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ env.VERSION }}
-          toTag: ${{ env.PREVIOUS_TAG }}
+          fromTag: ${{ env.PREVIOUS_TAG }}
+          toTag: ${{ env.VERSION }}
           writeToFile: false
           includeRefIssues: true
           useGitmojis: true
@@ -92,6 +92,7 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
