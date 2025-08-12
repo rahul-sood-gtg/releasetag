@@ -90,10 +90,11 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.VERSION }}
-          name: "Release ${{ env.VERSION }}"
+          name: "${{ env.VERSION }}"
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
