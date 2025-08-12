@@ -85,6 +85,9 @@ jobs:
           reverseOrder: false
           includeInvalidCommits: true
           excludeTypes: ""
+          customTypes: |
+            other: "✨ What Changed"
+
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
@@ -96,6 +99,7 @@ jobs:
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
