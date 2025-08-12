@@ -76,8 +76,7 @@ jobs:
         uses: requarks/changelog-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ env.VERSION }}
-          toTag: ${{ env.PREVIOUS_TAG }}
+          tag: ${{ env.VERSION }}
           writeToFile: false
           includeRefIssues: true
           useGitmojis: true
@@ -88,9 +87,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.VERSION }}
-          name: "Release ${{ env.VERSION }}"
+          name: "${{ env.VERSION }}"
           body: ${{ steps.changelog.outputs.changes }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
