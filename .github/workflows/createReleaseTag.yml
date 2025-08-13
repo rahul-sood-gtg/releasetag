@@ -3,7 +3,8 @@ name: Draft & Publish Android Release Tag
 on:
   pull_request:
     types: [closed]
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -11,18 +12,16 @@ permissions:
 
 jobs:
   release:
-    if: >
-      github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'releases/And-')
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'releases/And-')
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Configure Git identity as GitHub Actions bot
+      - name: Configure Git identity
         uses: actions-rindeal/git-identity-from-username@v2
         with:
           username: github-actions[bot]
@@ -30,64 +29,56 @@ jobs:
           failover-email: '41898282+github-actions[bot]@users.noreply.github.com'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Capture source branch & extract version
+      - name: Determine source branch
         run: |
           echo "SOURCE_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
-          VERSION=${{ github.event.pull_request.head.ref }}
-          VERSION=${VERSION#releases/And-}
+
+      - name: Check branch pattern
+        run: |
+          if [[ ! "${SOURCE_BRANCH}" =~ ^releases/And- ]]; then
+            echo "Branch does not match release pattern. Exiting."
+            exit 0
+          fi
+
+      - name: Extract version
+        run: |
+          VERSION=${SOURCE_BRANCH#releases/And-}
           VERSION=${VERSION%%-*}
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Create tag locally
-        run: git tag -a "$VERSION" -m "Release $VERSION"
-
       - name: Compute previous tag
-        id: prevtag
+        id: prev
         run: |
-          PREVIOUS_TAG=$(git tag --sort=-creatordate \
+          PREV=$(git tag --sort=-creatordate \
             | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
             | grep -v "^${VERSION}$" \
-            | tail -n1 || true)
-          echo "PREVIOUS_TAG=$PREVIOUS_TAG" >> $GITHUB_ENV
-          echo "Previous tag: $PREVIOUS_TAG"
+            | head -n1 || true)
+          echo "PREVIOUS_TAG=$PREV" >> $GITHUB_ENV
 
-      - name: Generate changelog
-        id: changelog
-        if: env.PREVIOUS_TAG != ''
-        uses: requarks/changelog-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ env.PREVIOUS_TAG }}   # older tag
-          toTag: ${{ env.VERSION }}          # newer tag
-          writeToFile: false
-          includeRefIssues: true
-          useGitmojis: true
-          reverseOrder: false
-          includeInvalidCommits: true
-          excludeTypes: ""
-
-      - name: Prepare release body
+      - name: Create tag & push
         run: |
-          mkdir -p dist
-          echo "${{ steps.changelog.outputs.changes }}" > dist/RELEASE_BODY_RAW.md
-          
-          # Replace heading with ✨ What Changed
-          sed 's/🛸 Other Changes/✨ What Changed/g' dist/RELEASE_BODY_RAW.md > dist/RELEASE_BODY.md
-          
-          # Append Full Changelog link if previous tag exists
-          if [ -n "${{ env.PREVIOUS_TAG }}" ]; then
-            echo "" >> dist/RELEASE_BODY.md
-            echo "**[Full Changelog](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**" >> dist/RELEASE_BODY.md
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+
+      - name: Generate changelog using git log
+        id: changelog
+        run: |
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "No previous tag found, generating changelog from initial commit"
+            LOG=$(git log --pretty=format:"- %h - %s (%an)" --reverse)
+          else
+            LOG=$(git log $PREVIOUS_TAG..$VERSION --pretty=format:"- %h - %s (%an)" --reverse)
           fi
+          echo "CHANGELOG=## ✨ What Changed\n$LOG" >> $GITHUB_ENV
 
-      - name: Push tag
-        run: git push origin "$VERSION"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.VERSION }}
           name: "${{ env.VERSION }}"
-          body_path: dist/RELEASE_BODY.md
+          body: |
+            ${{ env.CHANGELOG }}
+
+            **[Full Changelog](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
