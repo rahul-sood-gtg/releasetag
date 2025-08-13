@@ -3,9 +3,7 @@ name: Draft & Publish Android Release Tag
 on:
   pull_request:
     types: [closed]
-    branches:
-      - main
- 
+    branches: [main]
 
 permissions:
   contents: write
@@ -13,12 +11,13 @@ permissions:
 
 jobs:
   release:
-    if: |
-       github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'releases/And-')
+    if: >
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'releases/And-')
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
@@ -27,43 +26,27 @@ jobs:
         uses: actions-rindeal/git-identity-from-username@v2
         with:
           username: github-actions[bot]
-          failover-name: 'github-actions[bot]'
-          failover-email: '41898282+github-actions[bot]@users.noreply.github.com'
+          failover-name: github-actions[bot]
+          failover-email: 41898282+github-actions[bot]@users.noreply.github.com
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Identify merged PR for push events
-        if: ${{ github.event_name == 'push' }}
-        id: get_pr
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_DATA=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/pulls --jq '.[0].head.ref')
-          echo "SOURCE_BRANCH=$PR_DATA" >> $GITHUB_ENV
+      - name: Source branch
+        run: echo "SOURCE_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
 
-      - name: Determine source branch for pull_request
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          echo "SOURCE_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
-
-      - name: Check branch pattern
-        if: ${{ !startsWith(env.SOURCE_BRANCH, 'releases/And-') }}
-        run: |
-          echo "Source branch '${SOURCE_BRANCH}' does not start with 'releases/And-'. Exiting."
-          exit 0
-
-      - name: Extract version
+      - name: Extract version from branch
         run: |
           VERSION=${SOURCE_BRANCH#releases/And-}
           VERSION=${VERSION%%-*}
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Compute previous tag
+      - name: Compute previous tag (semver)
         id: prev
         run: |
-          PREV=$(git tag --sort=-creatordate \
+          PREV=$(git tag --list \
             | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V \
             | grep -v "^${VERSION}$" \
-            | head -n1 || true)
+            | tail -1 || true)
           echo "PREVIOUS_TAG=$PREV" >> $GITHUB_ENV
 
       - name: Create tag & push
@@ -73,48 +56,53 @@ jobs:
 
       - name: Generate changelog
         id: changelog
+        if: env.PREVIOUS_TAG != ''
         uses: requarks/changelog-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ env.VERSION }}
-          toTag: ${{ env.PREVIOUS_TAG }}
+          fromTag: ${{ env.VERSION }}         # latest (leave this as-is)
+          toTag:   ${{ env.PREVIOUS_TAG }}    # previous
           writeToFile: false
-          changelogFilePath: CHANGELOG.md
           includeRefIssues: true
           useGitmojis: true
           reverseOrder: false
           includeInvalidCommits: true
-          excludeTypes: ""
-          template: |
-            {{#if commits.other.length}}
-            ## ✨ What Changed
-            {{#each commits.other}}
-            - {{commit.short}} - {{commit.message}}{{#if commit.author}} (commit by @{{commit.author}}){{/if}}
-            {{/each}}
-            {{/if}}
+          excludeTypes: ""                    # keep "other" so we can rename it
 
+      - name: Prepare release body (rename "Other Changes" -> "✨ What Changed")
+        run: |
+          mkdir -p dist
+          # Save raw changelog
+          cat > dist/RELEASE_BODY_RAW.md <<'EOF'
+          ${{ steps.changelog.outputs.changes }}
+          EOF
+
+          # Rename the section header (covers with/without markdown #'s)
+          sed -E 's/^(#{1,6}[[:space:]]*)?🛸[[:space:]]*Other Changes(.*)$/## ✨ What Changed\2/g' \
+            dist/RELEASE_BODY_RAW.md > dist/RELEASE_BODY.md
+
+          # Append Full Changelog link
+          {
+            echo "";
+            echo "**[Full Changelog](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**";
+          } >> dist/RELEASE_BODY.md
+
+      # Optional: first-ever release fallback (no previous tag)
+      - name: Prepare initial release body (no previous tag)
+        if: env.PREVIOUS_TAG == ''
+        run: |
+          mkdir -p dist
+          {
+            echo "## ✨ What Changed"
+            echo ""
+            echo "- Initial release ${VERSION}"
+          } > dist/RELEASE_BODY.md
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.VERSION }}
-          name: "${{ env.VERSION }}"
-          body: ${{ steps.changelog.outputs.changes }}
-                **[Full Changelog:](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**
-
+          name: ${{ env.VERSION }}
+          body_path: dist/RELEASE_BODY.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
