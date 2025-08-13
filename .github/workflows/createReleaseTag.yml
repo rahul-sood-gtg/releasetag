@@ -12,8 +12,7 @@ permissions:
 
 jobs:
   release:
-    if: |
-       github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'releases/And-')
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'releases/And-')
     runs-on: ubuntu-latest
 
     steps:
@@ -35,11 +34,10 @@ jobs:
           echo "SOURCE_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
 
       - name: Check branch pattern
+        if: ${{ !startsWith(env.SOURCE_BRANCH, 'releases/And-') }}
         run: |
-          if [[ ! $SOURCE_BRANCH == releases/And-* ]]; then
-            echo "Source branch '${SOURCE_BRANCH}' does not start with 'releases/And-'. Exiting."
-            exit 0
-          fi
+          echo "Source branch '${SOURCE_BRANCH}' does not start with 'releases/And-'. Exiting."
+          exit 0
 
       - name: Extract version
         run: |
@@ -69,20 +67,21 @@ jobs:
             RANGE="$PREVIOUS_TAG..$VERSION --reverse"
           fi
 
-          {
-            echo "CHANGELOG<<EOF"
-            echo "## ✨ What Changed"
-            git log $RANGE --pretty=format:"- %h - %s (%an)" | \
-              sed -E 's/\[([A-Z]+-[0-9]+)\]/✨ [\1]/g' | \
-              sed -E 's/#([0-9]+)/🔖 #\1/g'
-            echo "EOF"
-          } >> $GITHUB_ENV
+          cat <<EOF >> $GITHUB_ENV
+CHANGELOG=## ✨ What Changed
+$(git log $RANGE --pretty=format:"- %h - %s (%an)" \
+  | sed -E 's/\[([A-Z]+-[0-9]+)\]/✨ [\1]/g' \
+  | sed -E 's/#([0-9]+)/🔖 #\1/g')
+EOF
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.VERSION }}
           name: "${{ env.VERSION }}"
-          body: ${{ env.CHANGELOG }}
+          body: |
+            ${{ env.CHANGELOG }}
+
+            **[Full Changelog](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
