@@ -82,3 +82,4 @@ test it
 good going
 this
 END OF FILE
+yes yes yes
