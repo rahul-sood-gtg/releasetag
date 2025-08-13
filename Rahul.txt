@@ -81,3 +81,4 @@ this is the one
 test it
 good going
 this
+END OF FILE
