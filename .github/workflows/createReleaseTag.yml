@@ -1,108 +1,71 @@
-name: Draft & Publish Android Release Tag
+name: Create Release Tag
 
 on:
-  pull_request:
-    types: [closed]
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. 25.87.0)'
+        required: true
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
   release:
-    if: >
-      github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'releases/And-')
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Configure Git identity as GitHub Actions bot
-        uses: actions-rindeal/git-identity-from-username@v2
-        with:
-          username: github-actions[bot]
-          failover-name: github-actions[bot]
-          failover-email: 41898282+github-actions[bot]@users.noreply.github.com
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Source branch
-        run: echo "SOURCE_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
-
-      - name: Extract version from branch
+      - name: Get previous tag
+        id: prevtag
         run: |
-          VERSION=${SOURCE_BRANCH#releases/And-}
-          VERSION=${VERSION%%-*}
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          prev_tag=$(git describe --tags --abbrev=0)
+          echo "PREVIOUS_TAG=$prev_tag" >> $GITHUB_ENV
 
-      - name: Compute previous tag (semver)
-        id: prev
-        run: |
-          PREV=$(git tag --list \
-            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
-            | sort -V \
-            | grep -v "^${VERSION}$" \
-            | tail -1 || true)
-          echo "PREVIOUS_TAG=$PREV" >> $GITHUB_ENV
-
-      - name: Create tag & push
-        run: |
-          git tag -a "$VERSION" -m "Release $VERSION"
-          git push origin "$VERSION"
+      - name: Set current version
+        run: echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
 
       - name: Generate changelog
         id: changelog
-        if: env.PREVIOUS_TAG != ''
         uses: requarks/changelog-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ env.VERSION }}         # latest (leave this as-is)
-          toTag:   ${{ env.PREVIOUS_TAG }}    # previous
+          fromTag: ${{ env.PREVIOUS_TAG }}
+          toTag: ${{ env.VERSION }}
           writeToFile: false
           includeRefIssues: true
           useGitmojis: true
           reverseOrder: false
           includeInvalidCommits: true
-          excludeTypes: ""                    # keep "other" so we can rename it
+          excludeTypes: ""
 
-      - name: Prepare release body (rename "Other Changes" -> "✨ What Changed")
+      - name: Prepare release body (rename heading)
         run: |
           mkdir -p dist
           # Save raw changelog
           cat > dist/RELEASE_BODY_RAW.md <<'EOF'
           ${{ steps.changelog.outputs.changes }}
           EOF
-
-          # Rename the section header (covers with/without markdown #'s)
-          sed -E 's/^(#{1,6}[[:space:]]*)?🛸[[:space:]]*Other Changes(.*)$/## ✨ What Changed\2/g' \
-            dist/RELEASE_BODY_RAW.md > dist/RELEASE_BODY.md
-
+          
+          # Replace 🛸 Other Changes with 🛸 What Changed
+          sed 's/🛸 Other Changes/🛸 What Changed/g' dist/RELEASE_BODY_RAW.md > dist/RELEASE_BODY.md
+          
           # Append Full Changelog link
           {
             echo "";
             echo "**[Full Changelog](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**";
           } >> dist/RELEASE_BODY.md
 
-      # Optional: first-ever release fallback (no previous tag)
-      - name: Prepare initial release body (no previous tag)
-        if: env.PREVIOUS_TAG == ''
+      - name: Create Git tag
         run: |
-          mkdir -p dist
-          {
-            echo "## ✨ What Changed"
-            echo ""
-            echo "- Initial release ${VERSION}"
-          } > dist/RELEASE_BODY.md
+          git tag ${{ env.VERSION }}
+          git push origin ${{ env.VERSION }}
 
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
-          name: ${{ env.VERSION }}
           body_path: dist/RELEASE_BODY.md
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
