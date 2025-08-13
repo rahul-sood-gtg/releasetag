@@ -12,7 +12,8 @@ permissions:
 
 jobs:
   release:
-    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'releases/And-')
+    if: |
+       github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'releases/And-')
     runs-on: ubuntu-latest
 
     steps:
@@ -21,7 +22,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure Git identity
+      - name: Configure Git identity as GitHub Actions bot
         uses: actions-rindeal/git-identity-from-username@v2
         with:
           username: github-actions[bot]
@@ -35,8 +36,8 @@ jobs:
 
       - name: Check branch pattern
         run: |
-          if [[ ! "${SOURCE_BRANCH}" =~ ^releases/And- ]]; then
-            echo "Branch does not match release pattern. Exiting."
+          if [[ ! $SOURCE_BRANCH == releases/And-* ]]; then
+            echo "Source branch '${SOURCE_BRANCH}' does not start with 'releases/And-'. Exiting."
             exit 0
           fi
 
@@ -60,8 +61,7 @@ jobs:
           git tag -a "$VERSION" -m "Release $VERSION"
           git push origin "$VERSION"
 
-      - name: Generate PR-style changelog with emojis
-        id: changelog
+      - name: Generate changelog with emojis
         run: |
           if [ -z "$PREVIOUS_TAG" ]; then
             RANGE="--reverse"
@@ -69,20 +69,20 @@ jobs:
             RANGE="$PREVIOUS_TAG..$VERSION --reverse"
           fi
 
-          LOG=$(git log $RANGE --pretty=format:"- %h - %s (%an)" | \
-            sed -E 's/\[([A-Z]+-[0-9]+)\]/✨ [\1]/g' | \
-            sed -E 's/#([0-9]+)/🔖 #\1/g')
-
-          echo "CHANGELOG=## ✨ What Changed\n$LOG" >> $GITHUB_ENV
+          {
+            echo "CHANGELOG<<EOF"
+            echo "## ✨ What Changed"
+            git log $RANGE --pretty=format:"- %h - %s (%an)" | \
+              sed -E 's/\[([A-Z]+-[0-9]+)\]/✨ [\1]/g' | \
+              sed -E 's/#([0-9]+)/🔖 #\1/g'
+            echo "EOF"
+          } >> $GITHUB_ENV
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.VERSION }}
           name: "${{ env.VERSION }}"
-          body: |
-            ${{ env.CHANGELOG }}
-
-            **[Full Changelog](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**
+          body: ${{ env.CHANGELOG }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
