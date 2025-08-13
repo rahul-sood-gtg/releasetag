@@ -60,15 +60,19 @@ jobs:
           git tag -a "$VERSION" -m "Release $VERSION"
           git push origin "$VERSION"
 
-      - name: Generate changelog using git log
+      - name: Generate PR-style changelog with emojis
         id: changelog
         run: |
           if [ -z "$PREVIOUS_TAG" ]; then
-            echo "No previous tag found, generating changelog from initial commit"
-            LOG=$(git log --pretty=format:"- %h - %s (%an)" --reverse)
+            RANGE="--reverse"
           else
-            LOG=$(git log $PREVIOUS_TAG..$VERSION --pretty=format:"- %h - %s (%an)" --reverse)
+            RANGE="$PREVIOUS_TAG..$VERSION --reverse"
           fi
+
+          LOG=$(git log $RANGE --pretty=format:"- %h - %s (%an)" | \
+            sed -E 's/\[([A-Z]+-[0-9]+)\]/✨ [\1]/g' | \
+            sed -E 's/#([0-9]+)/🔖 #\1/g')
+
           echo "CHANGELOG=## ✨ What Changed\n$LOG" >> $GITHUB_ENV
 
       - name: Create GitHub release
