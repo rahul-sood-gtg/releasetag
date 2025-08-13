@@ -41,7 +41,7 @@ jobs:
       - name: Create tag locally
         run: git tag -a "$VERSION" -m "Release $VERSION"
 
-      - name: Compute previous tag on same history
+      - name: Compute previous tag
         id: prevtag
         run: |
           prev=$(git --no-pager tag --sort=creatordate --merged "$VERSION" | tail -2 | head -1 || true)
@@ -54,8 +54,8 @@ jobs:
         uses: requarks/changelog-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ env.PREVIOUS_TAG }}
-          toTag: ${{ env.VERSION }}
+          fromTag: ${{ env.PREVIOUS_TAG }}   # older tag first
+          toTag: ${{ env.VERSION }}          # newer tag second
           writeToFile: false
           includeRefIssues: true
           useGitmojis: true
@@ -66,10 +66,9 @@ jobs:
       - name: Prepare release body
         run: |
           mkdir -p dist
-          # Save raw changelog
           echo "${{ steps.changelog.outputs.changes }}" > dist/RELEASE_BODY_RAW.md
           
-          # Replace 🛸 Other Changes with ✨ What Changed
+          # Replace heading with ✨ What Changed
           sed 's/🛸 Other Changes/✨ What Changed/g' dist/RELEASE_BODY_RAW.md > dist/RELEASE_BODY.md
           
           # Append Full Changelog link
@@ -89,4 +88,3 @@ jobs:
           body_path: dist/RELEASE_BODY.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
