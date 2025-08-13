@@ -87,7 +87,7 @@ jobs:
           excludeTypes: ""
           template: |
             {{#if commits.other.length}}
-            ## ✨ What Changed
+            ## 🛸 What Changed
             {{#each commits.other}}
             - {{commit.short}} - {{commit.message}}{{#if commit.author}} (commit by @{{commit.author}}){{/if}}
             {{/each}}
@@ -104,6 +104,7 @@ jobs:
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
