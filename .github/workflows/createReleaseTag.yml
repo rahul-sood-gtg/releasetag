@@ -75,24 +75,23 @@ jobs:
         id: changelog
         uses: requarks/changelog-action@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ env.VERSION }}
-          toTag: ${{ env.PREVIOUS_TAG }}
-          writeToFile: false
-          changelogFilePath: CHANGELOG.md
-          includeRefIssues: true
-          useGitmojis: true
-          reverseOrder: false
-          includeInvalidCommits: true
-          excludeTypes: ""
-          template: |
-            {{#if commits.other.length}}
-            ## ✨ What Changed
-            {{#each commits.other}}
-            - {{commit.short}} - {{commit.message}}{{#if commit.author}} (commit by @{{commit.author}}){{/if}}
-            {{/each}}
-            {{/if}}
+            token: ${{ secrets.GITHUB_TOKEN }}
+            fromTag: ${{ env.VERSION }}
+            toTag: ${{ env.PREVIOUS_TAG }}
+            writeToFile: false
+            changelogFilePath: CHANGELOG.md
+            includeRefIssues: true
+            useGitmojis: true
+            reverseOrder: false
+            includeInvalidCommits: true
+            excludeTypes: ""
+            template: |
+              ## ✨ What’s Changed
+                   {{#each commits.all}}
+                   - {{commit.short}} - {{commit.message}}{{#if commit.author}} (commit by @{{commit.author}}){{/if}}
+                   {{/each}}
 
+                  **[Full Changelog](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
@@ -100,10 +99,10 @@ jobs:
           tag_name: ${{ env.VERSION }}
           name: "${{ env.VERSION }}"
           body: ${{ steps.changelog.outputs.changes }}
-                **[Full Changelog:](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**
-
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       
+
 
 
 
