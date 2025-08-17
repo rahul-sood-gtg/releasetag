@@ -87,11 +87,11 @@ jobs:
             excludeTypes: ""
             template: |
               ## ✨ What’s Changed
-                   {{#each commits.all}}
-                   - {{commit.short}} - {{commit.message}}{{#if commit.author}} (commit by @{{commit.author}}){{/if}}
-                   {{/each}}
+              {#each commits.all}}
+              - {{commit.short}} - {{commit.message}}{{#if commit.author}} (commit by @{{commit.author}}){{/if}}
+              {{/each}}
 
-                  **[Full Changelog](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**
+              **[Full Changelog](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
@@ -102,6 +102,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
        
+
 
 
 
