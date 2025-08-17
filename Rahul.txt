@@ -98,3 +98,4 @@ some feature change 2
 refactoring code
 bug fix
 bug fix 2
+Bump up release version to 1.0.0
