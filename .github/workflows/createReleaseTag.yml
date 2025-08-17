@@ -5,6 +5,7 @@ on:
     types: [closed]
     branches:
       - main
+ 
 
 permissions:
   contents: write
@@ -30,16 +31,25 @@ jobs:
           failover-email: '41898282+github-actions[bot]@users.noreply.github.com'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Identify merged PR for push events
+        if: ${{ github.event_name == 'push' }}
+        id: get_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_DATA=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/pulls --jq '.[0].head.ref')
+          echo "SOURCE_BRANCH=$PR_DATA" >> $GITHUB_ENV
+
       - name: Determine source branch for pull_request
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
           echo "SOURCE_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
 
       - name: Check branch pattern
+        if: ${{ !startsWith(env.SOURCE_BRANCH, 'releases/And-') }}
         run: |
-          if [[ ! $SOURCE_BRANCH == releases/And-* ]]; then
-            echo "Source branch '${SOURCE_BRANCH}' does not start with 'releases/And-'. Exiting."
-            exit 0
-          fi
+          echo "Source branch '${SOURCE_BRANCH}' does not start with 'releases/And-'. Exiting."
+          exit 0
 
       - name: Extract version
         run: |
@@ -62,29 +72,50 @@ jobs:
           git push origin "$VERSION"
 
       - name: Generate changelog
-        run: |
-          if [ -z "$PREVIOUS_TAG" ]; then
-            RANGE="--reverse"
-          else
-            RANGE="$PREVIOUS_TAG..$VERSION --reverse"
-          fi
+        id: changelog
+        uses: requarks/changelog-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fromTag: ${{ env.VERSION }}
+          toTag: ${{ env.PREVIOUS_TAG }}
+          writeToFile: false
+          changelogFilePath: CHANGELOG.md
+          includeRefIssues: true
+          useGitmojis: true
+          reverseOrder: false
+          includeInvalidCommits: true
+          excludeTypes: ""
+          template: |
+            {{#if commits.other.length}}
+            ## ✨ What Changed
+            {{#each commits.other}}
+            - {{commit.short}} - {{commit.message}}{{#if commit.author}} (commit by @{{commit.author}}){{/if}}
+            {{/each}}
+            {{/if}}
 
-          cat <<EOF >> $GITHUB_ENV
-          CHANGELOG=## ✨ What Changed
-          $(git log $RANGE --pretty=format:"- %h - %s (%an)" \ sed -E 's/\[([A-Z]+-[0-9]+)\]/✨ [\1]/g' \ | sed -E 's/#([0-9]+)/🔖 #\1/g') EOF
-        shell: bash
-        env:
-          VERSION: ${{ env.VERSION }}
-          PREVIOUS_TAG: ${{ env.PREVIOUS_TAG }}
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.VERSION }}
           name: "${{ env.VERSION }}"
-          body: |
-            ${{ env.CHANGELOG }}
+          body: ${{ steps.changelog.outputs.changes }}
+                **[Full Changelog:](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**
 
-            **[Full Changelog:](https://github.com/${{ github.repository }}/compare/${{ env.PREVIOUS_TAG }}...${{ env.VERSION }})**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
