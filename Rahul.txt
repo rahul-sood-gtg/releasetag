@@ -97,3 +97,4 @@ some feature change 1
 some feature change 2
 refactoring code
 bug fix
+bug fix 2
